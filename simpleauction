@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SimpleAuction {
+
+    address public seller;         // Owner of the auction
+    address public highestBidder;  // Address of highest bidder
+    uint public highestBid;        // Highest bid amount
+    bool public auctionEnded;      // Auction status
+
+    mapping(address => uint) public pendingReturns;  // Track refunds for outbid users
+
+    constructor() {
+        seller = msg.sender;   // Whoever deploys this contract is the seller
+        highestBid = 0;        // Initial highest bid is 0
+    }
+
+    // Function to place a bid
+    function bid() public payable {
+        require(!auctionEnded, "Auction has ended");
+        require(msg.value > highestBid, "Bid is not high enough");
+
+        if (highestBid != 0) {
+            // Refund the previous highest bidder
+            pendingReturns[highestBidder] += highestBid;
+        }
+
+        highestBidder = msg.sender;
+        highestBid = msg.value;
+    }
+
+    // Withdraw your previous bids (if you were outbid)
+    function withdraw() public {
+        uint amount = pendingReturns[msg.sender];
+        require(amount > 0, "Nothing to withdraw");
+
+        pendingReturns[msg.sender] = 0;
+        payable(msg.sender).transfer(amount);
+    }
+
+    // End the auction (only seller can do this)
+    function endAuction() public {
+        require(msg.sender == seller, "Only seller can end the auction");
+        require(!auctionEnded, "Auction already ended");
+
+        auctionEnded = true;
+
+        // Transfer highest bid to seller
+        payable(seller).transfer(highestBid);
+    }
+}
+
